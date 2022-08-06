@@ -22,10 +22,11 @@ public class Practicum {
         String[] args5 = {"program", "--number=123", "123", "--big-number=12343234", "3123123123", "-t", "text1231", "-v"}; // Валидная строка
         String[] args6 = {"program", "--number=123", "1234", "--big-number=12343234", "3123123123", "--text=text", "text1231"}; // Валидная строка
         String[] args7 = {"program", "--number=123", "123", "--bigErrorNumber=12343234", "3123123123", "--text", "text1231"}; // Не валидная строка
-        String[] args8 = {"program", "--number=123", "123", "--big-number=12343234", "3123123123", "--big-number=0", "-t"}; // Не валидная строка
+        String[] args8 = {"program", "-number=123", "123", "--big-number=12343234", "3123123123", "--big-number=0", "--text=text", "-n"}; // Не валидная строка
         String[] args9 = {"program", "--number=123", "123", "--big-number=12343234", "3123123123", "--big-number=0", "-t", "1234"}; // Валидная строка
         String[] args10 = {}; // Не валидная строка
-        System.out.println(parseArgs(args10));
+        String[] args11 = {"program", "--text=text", "--big-number=123", "--number=1"}; // Валидная строка
+        System.out.println(parseArgs(args8));
     }
 
     /**
@@ -38,85 +39,62 @@ public class Practicum {
      */
     public static HashMap<String, String> parseArgs(String[] args) {
         final int size = args.length;
-        if (size < NUM_OF_REQUIRED_PARAMS + 1) {
-            System.out.println("Input error.");
-            return null;
-        }
-        if (!args[0].equals(COMMAND_NAME)) {
-            System.out.println("Unknown command.");
-            return null;
+        if (size == 0 || !args[0].equals(COMMAND_NAME)) {
+            throw new IllegalCallerException("Unknown command.");
         }
         final HashMap<String, String> map = new HashMap<>(NUM_OF_REQUIRED_PARAMS + NUM_OF_NOT_REQUIRED_PARAMS);
-        boolean flagForAllInput = true;
-        // Массив отображающий, какие параметры уже были добавлены. true - добавлен. false - не добавлен. Необязательные параметры в конце массива!
-        boolean[] wasPut = new boolean[NUM_OF_REQUIRED_PARAMS + NUM_OF_NOT_REQUIRED_PARAMS]; // 0 - T, 1 - N, 2 - B, 3 - V
-        int elemSize;
-        map.put(V, "false");
-        map.put(T, "");
-        map.put(N, "");
-        map.put(B, "");
+        String[] keys = {T, N, B, V}; //Ключи к необязательным параметрам в конце массива.
+        for (int i = 0; i < NUM_OF_REQUIRED_PARAMS + NUM_OF_NOT_REQUIRED_PARAMS; i++) { // Заполнение Map пустыми строками.
+            map.put(keys[i], "");
+        }
         for (int i = 1; i < size; i++) {
-            elemSize = args[i].length() - 1;
             switch (args[i]) { // Проверка по неполным параметрам
                 case "-v":
                 case "--verbose": {
-                    if (!wasPut[3]) {
-                        wasPut[3] = true;
+                    if (map.get(V).isEmpty()) {
                         map.put(V, "true");
                     }
                     break;
                 }
                 case "-n": {
-                    if (i + 1 < size && !wasPut[1]) {
-                        if (isNumber(args[i + 1])) {
-                            map.put(N, args[i + 1]);
-                            wasPut[1] = true;
-                            i++;
-                        }
+                    if (i + 1 < size && map.get(N).isEmpty() && isNumber(args[i + 1])) {
+                        map.put(N, args[i + 1]);
+                        i++;
                     }
                     break;
                 }
                 case "-t": {
-                    if (i + 1 < size && !wasPut[0]) {
+                    if (i + 1 < size && map.get(T).isEmpty()) {
                         map.put(T, args[i + 1]);
-                        wasPut[0] = true;
                         i++;
                     }
                     break;
                 }
                 case "-b": {
-                    if (i + 1 < size && !wasPut[2]) {
-                        if (isNumber(args[i + 1])) {
-                            map.put(B, args[i + 1]);
-                            wasPut[2] = true;
-                            i++;
-                        }
+                    if (i + 1 < size && map.get(B).isEmpty() && isNumber(args[i + 1])) {
+                        map.put(B, args[i + 1]);
+                        i++;
                     }
                     break;
                 }
             }
-            if (elemSize >= MINIMAL_SYMBOLS_IN_FULL_PARAM) {
-                checkFullParamsName(args[i], map, wasPut);
+            if (args[i].length() > MINIMAL_SYMBOLS_IN_FULL_PARAM) {
+                checkFullParamsName(args[i], map);
             }
-            for (boolean b : wasPut) { // Проверка на введеность всех  параметров
-                if (!b) { // Если один из обязательных не введен, то выходим и помечаем это
-                    flagForAllInput = false;
-                    break;
-                }
-            }
-            if (flagForAllInput) { // Если условие из цикла ниразу не выполнилось, флаг останется true, значит все обязательные параметры были добавлены
-                flagForAllInput = false;
+            if (!map.containsValue("")) {
                 break;
             }
-            flagForAllInput = true; // Возвращаем значение флажку
         }
-        if (flagForAllInput && map.containsValue("")) { // Если введены не все обязательные параметры, вывод ошибки.
-            System.out.println("Not at all required params input");
-            return null;
+        for (int i = 0; i < NUM_OF_REQUIRED_PARAMS; i++) { // Проверка состояния Map после считывания всех параметров.
+            if (map.get(keys[i]).isEmpty()) {
+                throw new IllegalArgumentException("Required parameter not found -> --" + keys[i]);
+            }
         }
-        if (map.containsValue("")) { // Если значение параметра не было подано
-            System.out.println("Not at all required params value input");
-            return null;
+        // Заполнение дефолтными значениями необязательных параметров, если они не были указаны.
+        for (int i = NUM_OF_REQUIRED_PARAMS; i < NUM_OF_REQUIRED_PARAMS + NUM_OF_NOT_REQUIRED_PARAMS; i++) {
+            if (map.get(keys[i]).isEmpty()) {
+                map.put(keys[i], "false");
+            }
         }
         return map;
     }
@@ -131,7 +109,6 @@ public class Practicum {
         final int size = s.length();
         for (int i = 0; i < size; i++) {
             if (s.charAt(i) < '0' || s.charAt(i) > '9') {
-                System.out.println(1);
                 return false;
             }
         }
@@ -141,21 +118,19 @@ public class Practicum {
     /**
      * Парсер параметров с полным именем.
      *
-     * @param s      Параметр с полным именем.
-     * @param map    Ссылка на instance HashMap.
-     * @param wasPut Проверка на добавления значения параметра в map, до этого. true - был добавлен, false - не был добавлен.
+     * @param s   Параметр с полным именем.
+     * @param map Ссылка на instance HashMap.
      */
-    private static void checkFullParamsName(String s, HashMap<String, String> map, boolean[] wasPut) {
+    private static void checkFullParamsName(String s, HashMap<String, String> map) {
         final int size = s.length();
+        int valueStartIndex = size;
+        if (s.charAt(0) != '-' || s.charAt(1) != '-') { // Проверка на содержание двух '-' перед полным именем параметра.
+            return;
+        }
         StringBuilder addValueToMap = new StringBuilder();
-        if (size + 1 < 7) { // Проверка на минимальную длину полного параметра
-            return;
-        }
-        if (s.charAt(0) != '-' || s.charAt(1) != '-') { // Проверка на содержание двух '-' перед полным именем параметра
-            return;
-        }
-        for (int i = 2; i < size; i++) { // Считывание имени параметра
+        for (int i = 2; i < size; i++) { // Считывание имени параметра.
             if (s.charAt(i) == '=') {
+                valueStartIndex = i + 1; // Следующий символ после "=".
                 break;
             }
             addValueToMap.append(s.charAt(i));
@@ -164,10 +139,9 @@ public class Practicum {
             case V:
                 return;
             case N: {
-                if (!wasPut[1]) {
+                if (map.get(N).isEmpty()) {
                     addValueToMap = new StringBuilder();
-                    wasPut[1] = true;
-                    for (int i = 9; i < size; i++) { // i = 9 - количество символов до значения параметра.
+                    for (int i = valueStartIndex; i < size; i++) {
                         addValueToMap.append(s.charAt(i));
                     }
                     if (isNumber(addValueToMap.toString())) {
@@ -177,10 +151,9 @@ public class Practicum {
                 return;
             }
             case B: {
-                if (!wasPut[2]) {
+                if (map.get(B).isEmpty()) {
                     addValueToMap = new StringBuilder();
-                    wasPut[2] = true;
-                    for (int i = 13; i < size; i++) {
+                    for (int i = valueStartIndex; i < size; i++) {
                         addValueToMap.append(s.charAt(i));
                     }
                     if (isNumber(addValueToMap.toString())) {
@@ -190,10 +163,9 @@ public class Practicum {
                 return;
             }
             case T: {
-                if (!wasPut[0]) {
+                if (map.get(T).isEmpty()) {
                     addValueToMap = new StringBuilder();
-                    wasPut[0] = true;
-                    for (int i = 7; i < size; i++) {
+                    for (int i = valueStartIndex; i < size; i++) {
                         addValueToMap.append(s.charAt(i));
                     }
                     map.put(T, addValueToMap.toString());
